@@ -95,7 +95,7 @@ func main() {
 	e := echo.New()
 
 	e.GET("/api/user", h.GetUser)
-	e.POST("/api/user/create", h.PostUser)
+	e.POST("/api/user", h.PostUser)
 
 	fmt.Printf("Сервер запущен на %s\n", *address)
 	if err := e.Start(*address); err != nil {

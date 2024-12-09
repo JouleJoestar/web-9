@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	_ "github.com/lib/pq"
@@ -42,43 +43,30 @@ func (dp *DatabaseProvider) UpdateCounter(value int) error {
 	return err
 }
 
-func (h *Handlers) HandleCount(c echo.Context) error {
-	switch c.Request().Method {
-	case http.MethodGet:
-		counter, err := h.dbProvider.GetCounter()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		err = h.dbProvider.UpdateCounter(1)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.String(http.StatusOK, fmt.Sprintf("%d", counter+1)) // Увеличиваем на 1 для ответа
-
-	case http.MethodPost:
-		var requestBody struct {
-			Count int `json:"count"`
-		}
-
-		if err := c.Bind(&requestBody); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "это не число"})
-		}
-
-		err := h.dbProvider.UpdateCounter(requestBody.Count)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Success"})
-
-	default:
-		return c.JSON(http.StatusMethodNotAllowed, map[string]string{"error": "Неизвестный метод"})
+func (h *Handlers) getCount(c echo.Context) error {
+	counter, err := h.dbProvider.GetCounter()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	return c.String(http.StatusOK, fmt.Sprintf("%d", counter))
+}
+
+func (h *Handlers) postCount(c echo.Context) error {
+	countParam := c.QueryParam("count")
+	count, err := strconv.Atoi(countParam)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "это не число"})
+	}
+
+	err = h.dbProvider.UpdateCounter(count)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Success"})
 }
 
 func main() {
-	address := flag.String("address", "127.0.0.1:3333", "адрес для запуска сервера")
+	address := flag.String("address", "127.0.0.1:3332", "адрес для запуска сервера")
 	flag.Parse()
 
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
@@ -97,10 +85,10 @@ func main() {
 
 	e.Logger.SetLevel(2)
 
-	e.GET("/count", h.HandleCount)
-	e.POST("/count", h.HandleCount)
+	e.GET("/count", h.getCount)
+	e.POST("/count", h.postCount)
 
-	fmt.Println("Сервер запущен на порту :3333")
+	fmt.Println("Сервер запущен на порту :3332")
 	if err := e.Start(*address); err != nil {
 		log.Fatal(err)
 	}
